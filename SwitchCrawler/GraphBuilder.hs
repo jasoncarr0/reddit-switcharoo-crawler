@@ -2,6 +2,14 @@
 
 module SwitchCrawler.GraphBuilder 
 ( GraphBuilder (..)
+, emptyGraphBuilder
+, mapMap
+, mapQueue
+, enqueue
+, dequeue
+, modifyQueue
+, mapContains
+, insertMap
 ) where
 
 import Control.Monad.State.Class

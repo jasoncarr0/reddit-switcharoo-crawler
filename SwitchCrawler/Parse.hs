@@ -54,10 +54,13 @@ parsePermalink = do
     post <- many alphaNum
     --post name
     char '/'
+    --
     many (noneOf [' ', '/'])
     char '/'
+    --comment name
     comment <- many alphaNum
-    context <- option 0 (try $ string "/?context=" >> decimal) 
+    optional $ char '/'
+    context <- option 0 (try $ string "?context=" >> decimal) 
     many $ noneOf ")"
     return (PostID (pack post), CommentID (pack comment), context) where
         decimal = do
