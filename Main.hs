@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, RecursiveDo, FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
 
 module Main where
 
@@ -9,8 +9,9 @@ import Reddit.Types.Comment
 import Reddit.Types.Post
 import Control.Monad.IO.Class
 import Control.Monad.State.Class
-import Data.Text
+import qualified Data.Text as T
 import SwitchCrawler.Parse
+import SwitchCrawler.GraphBuilder
 
 switcharooName :: SubredditName
 switcharooName = R "switcharoo"
@@ -43,7 +44,7 @@ postToLinkedComment p = do
         toMaybe (Left e) = Nothing
         snd3 (a, b, c) = b
 
-postToLink :: Post -> Maybe Text
+postToLink :: Post -> Maybe T.Text
 postToLink (Post {content = Link text}) = Just text
 postToLink _ = Nothing
 
@@ -51,7 +52,7 @@ switcharooPosts :: MonadIO m => RedditT m [Post]
 switcharooPosts = subredditAll New (Just switcharooName)
 
 subredditAll :: MonadIO m => ListingType -> Maybe SubredditName -> RedditT m [Post]
-subredditAll lt sub = Prelude.concat <$> subredditAll' Nothing where
+subredditAll lt sub = concat <$> subredditAll' Nothing where
     subredditAll' :: MonadIO m => Maybe (PaginationOption PostID) -> RedditT m [[Post]]
     subredditAll' pag = do
         Listing before' after' posts <- getPosts' (Options pag Nothing) lt sub
