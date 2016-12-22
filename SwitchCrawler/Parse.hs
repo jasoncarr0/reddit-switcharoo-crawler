@@ -27,6 +27,7 @@ scrapePermalinks = do
         char '['
         text <- many $ noneOf "[]()"
         char ']'
+        spaces
         char '('
         (post, comment, id) <- try parsePermalink
         char ')'
@@ -44,7 +45,8 @@ parsePermalink = do
     string "http"
     optional (char 's')
     string "://"
-    optional $ try $ string "www."
+    many alphaNum
+    optional $ char '.'
     string "reddit.com"
     --optional subreddit name
     optional $ try $ string "/r/" >> many (noneOf [' ', '/'])
