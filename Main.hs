@@ -9,6 +9,7 @@ import Reddit.Types.Post
 import Control.Monad.IO.Class
 import Control.Monad.State.Class
 import Data.Text
+import SwitchCrawler.Parse
 
 switcharooName :: SubredditName
 switcharooName = R "switcharoo"
