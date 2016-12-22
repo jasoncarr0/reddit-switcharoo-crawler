@@ -18,6 +18,8 @@ import Text.Parsec.Char
 doScrapePermalinks :: Stream s Identity Char => s -> Either ParseError [(String, PostID, CommentID, Int)]
 doScrapePermalinks s = parse scrapePermalinks "post content" s
 
+
+
 scrapePermalinks :: Stream s m Char => ParsecT s u m [(String, PostID, CommentID, Int)]
 scrapePermalinks = do
     links <- many $ try $ do 
@@ -42,10 +44,10 @@ parsePermalink = do
     string "http"
     optional (char 's')
     string "://"
-    optional (string "www.")
+    optional $ try $ string "www."
     string "reddit.com"
     --optional subreddit name
-    optional (string "/r/" >> many (noneOf [' ', '/']))
+    optional $ try $ string "/r/" >> many (noneOf [' ', '/'])
     string "/comments/"
     post <- many alphaNum
     --post name
@@ -53,7 +55,7 @@ parsePermalink = do
     many (noneOf [' ', '/'])
     char '/'
     comment <- many alphaNum
-    context <- option 0 (string "/?context=" >> decimal) 
+    context <- option 0 (try $ string "/?context=" >> decimal) 
     many $ noneOf ")"
     return (PostID (pack post), CommentID (pack comment), context) where
         decimal = do
