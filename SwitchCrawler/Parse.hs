@@ -7,6 +7,7 @@ module SwitchCrawler.Parse
 , scrapePermalinks
 ) where
 
+import Control.Monad.Identity
 import Data.Char (digitToInt)
 import Data.Text (Text, pack)
 import Reddit.Types.Comment
@@ -14,7 +15,7 @@ import Reddit.Types.Post
 import Text.Parsec
 import Text.Parsec.Char
 
-doScrapePermalinks :: String -> Either ParseError [(String, PostID, CommentID, Int)]
+doScrapePermalinks :: Stream s Identity Char => s -> Either ParseError [(String, PostID, CommentID, Int)]
 doScrapePermalinks s = parse scrapePermalinks "post content" s
 
 scrapePermalinks :: Stream s m Char => ParsecT s u m [(String, PostID, CommentID, Int)]
@@ -32,7 +33,7 @@ scrapePermalinks = do
     return links
     
 
-doParsePermalink :: String -> Either ParseError (PostID, CommentID, Int)
+doParsePermalink :: Stream s Identity Char => s -> Either ParseError (PostID, CommentID, Int)
 doParsePermalink s = parse parsePermalink "permalink" s
 
 parsePermalink :: Stream s m Char => ParsecT s u m (PostID, CommentID, Int)

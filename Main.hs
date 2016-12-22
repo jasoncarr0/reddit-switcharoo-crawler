@@ -24,6 +24,13 @@ main = do
 runSwitcharoo :: MonadIO m => RedditT m a -> m (Either (APIError RedditError) a)
 runSwitcharoo = runRedditWith switcharooOptions
 
+postToLinkedComment :: Post -> Maybe (PostID, CommentID, Int)
+postToLinkedComment p = do
+    link <- postToLink p
+    toMaybe $ doParsePermalink link where
+        toMaybe (Right val) = Just val
+        toMaybe (Left e) = Nothing
+
 postToLink :: Post -> Maybe Text
 postToLink (Post {content = Link text}) = Just text
 postToLink _ = Nothing
