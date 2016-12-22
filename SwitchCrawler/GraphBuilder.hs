@@ -21,13 +21,13 @@ import qualified Data.Map.Strict as M
 --is spent on the actual polling the API
 data GraphBuilder a = GraphBuilder 
     { gbqueue :: [a] 
-    , gbmap :: (M.Map a (Maybe a))
+    , gbmap :: (M.Map a [a])
     }
 
 emptyGraphBuilder :: GraphBuilder a
 emptyGraphBuilder = GraphBuilder [] M.empty
 
-mapMap :: (M.Map a (Maybe a) -> M.Map a (Maybe a)) -> GraphBuilder a -> GraphBuilder a
+mapMap :: (M.Map a [a] -> M.Map a [a]) -> GraphBuilder a -> GraphBuilder a
 mapMap f (GraphBuilder queue map) = GraphBuilder queue (f map)
 
 mapQueue :: ([a] -> [a]) -> GraphBuilder a -> GraphBuilder a
@@ -51,5 +51,5 @@ mapContains = do
     GraphBuilder queue map <- get
     return $ \a -> elem a $ M.keys map
 
-insertMap :: Ord a => MonadState (GraphBuilder a) m => a -> (Maybe a) -> m ()
+insertMap :: Ord a => MonadState (GraphBuilder a) m => a -> [a] -> m ()
 insertMap k v = modify' $ mapMap $ M.insert k v

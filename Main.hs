@@ -7,8 +7,14 @@ import Reddit.Types.Listing (ListingType (..))
 import Reddit.Types.Subreddit (SubredditName)
 import Reddit.Types.Comment
 import Reddit.Types.Post
+import Control.Exception (assert)
 import Control.Monad.IO.Class
+import Control.Monad.State.Lazy
 import Control.Monad.State.Class
+import Control.Monad.Trans.Class
+import Data.List (nub)
+import qualified Data.Map as M
+import Data.Maybe (catMaybes)
 import qualified Data.Text as T
 import SwitchCrawler.Parse
 import SwitchCrawler.GraphBuilder
@@ -17,7 +23,8 @@ switcharooName :: SubredditName
 switcharooName = R "switcharoo"
 
 switcharooOptions :: RedditOptions
-switcharooOptions = defaultRedditOptions { customUserAgent = Just "haskell:temp.switcharoo_scraper:v0.1.0" }
+switcharooOptions = defaultRedditOptions 
+    { customUserAgent = Just "haskell:temp.switcharoo_scraper:v0.1.0" }
 
 main :: IO ()
 main = do
@@ -26,15 +33,44 @@ main = do
 runSwitcharoo :: MonadIO m => RedditT m a -> m (Either (APIError RedditError) a)
 runSwitcharoo = runRedditWith switcharooOptions
 
+runSwitcharooBuilder :: RedditT (StateT (GraphBuilder a) IO) b -> IO (Either (APIError RedditError) b)
+runSwitcharooBuilder = flip evalStateT emptyGraphBuilder . runSwitcharoo
 
-commentIdsToLinked :: MonadIO m => [CommentID] -> RedditT m [Maybe CommentID]
+
+
+buildCommentGraph :: (MonadIO m, MonadState (GraphBuilder CommentID) m) => [CommentID] -> RedditT m (M.Map CommentID [CommentID])
+buildCommentGraph ids = do
+    lift (enqueue ids) 
+    buildCommentGraph'
+    GraphBuilder _ map <- lift get
+    return map where
+        buildCommentGraph' :: (MonadIO m, MonadState (GraphBuilder CommentID) m) => RedditT m ()
+        buildCommentGraph' = do
+            lift $ modifyQueue (filter (/= (CommentID "")) . nub)
+            nextIds <- lift $ dequeue 100
+            if (not $ null nextIds) then do
+                values <- commentIdsToLinked nextIds
+                return $ assert (length nextIds == length values) ()
+                let pairs = nextIds `zip` values
+                contains <- lift $ mapContains
+                lift $ enqueue $ join values
+                lift $ modifyQueue (filter (not . contains))
+                
+                lift $ sequence (uncurry insertMap <$> pairs)
+                buildCommentGraph'
+            else return ()
+
+
+
+commentIdsToLinked :: MonadIO m => [CommentID] -> RedditT m [[CommentID]]
 commentIdsToLinked cs = do
     Listing _ _ cs' <- getCommentsInfo cs
     return $ doScrape <$> content <$> cs' where
         doScrape text = case doScrapePermalinks text of
-            Right [(_, _, c, _)] -> Just c
-            _                    -> Nothing
+            Right ls -> third4 <$> ls
+            _        -> []
         content (Comment {body=c}) = c
+        third4 (a, b, c, d) = c
 
 postToLinkedComment :: Post -> Maybe CommentID
 postToLinkedComment p = do
