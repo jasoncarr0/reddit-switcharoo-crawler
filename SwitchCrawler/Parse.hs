@@ -29,7 +29,9 @@ scrapePermalinks = do
         char ']'
         spaces
         char '('
+        spaces
         (post, comment, id) <- try parsePermalink
+        spaces
         char ')'
         return (text, post, comment, id)
     many anyChar
@@ -45,9 +47,7 @@ parsePermalink = do
     string "http"
     optional (char 's')
     string "://"
-    many alphaNum
-    optional $ char '.'
-    string "reddit.com"
+    (try (string "reddit.com") <|> (many alphaNum >> char '.' >> string "reddit.com"))
     --optional subreddit name
     optional $ try $ string "/r/" >> many (noneOf [' ', '/'])
     string "/comments/"
