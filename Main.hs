@@ -3,10 +3,12 @@
 module Main where
 
 import Reddit
-import Reddit.Types.Listing (ListingType)
+import Reddit.Types.Listing (ListingType (..))
 import Reddit.Types.Subreddit (SubredditName)
+import Reddit.Types.Post
 import Control.Monad.IO.Class
 import Control.Monad.State.Class
+import Data.Text
 
 switcharooName :: SubredditName
 switcharooName = R "switcharoo"
@@ -18,17 +20,22 @@ main :: IO ()
 main = do
     return ()
 
+runSwitcharoo :: MonadIO m => RedditT m a -> m (Either (APIError RedditError) a)
+runSwitcharoo = runRedditWith switcharooOptions
 
+postToLink :: Post -> Maybe Text
+postToLink (Post {content = Link text}) = Just text
+postToLink _ = Nothing
 
 switcharooPosts :: MonadIO m => RedditT m [Post]
 switcharooPosts = subredditAll New (Just switcharooName)
 
 subredditAll :: MonadIO m => ListingType -> Maybe SubredditName -> RedditT m [Post]
-subredditAll lt sub = concat <$> subredditAll' Nothing where
+subredditAll lt sub = Prelude.concat <$> subredditAll' Nothing where
     subredditAll' :: MonadIO m => Maybe (PaginationOption PostID) -> RedditT m [[Post]]
     subredditAll' pag = do
         Listing before' after' posts <- getPosts' (Options pag Nothing) lt sub
-        case before' of Just b -> (posts :) <$> (subredditAll' (Just (After b)))
+        case after' of  Just b -> (posts :) <$> (subredditAll' (Just (After b)))
                         Nothing -> return [posts]
 
     
