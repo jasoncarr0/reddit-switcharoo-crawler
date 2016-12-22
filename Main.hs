@@ -1,10 +1,11 @@
-{-# LANGUAGE OverloadedStrings, RecursiveDo #-}
+{-# LANGUAGE OverloadedStrings, RecursiveDo, FlexibleContexts #-}
 
 module Main where
 
 import Reddit
 import Reddit.Types.Listing (ListingType (..))
 import Reddit.Types.Subreddit (SubredditName)
+import Reddit.Types.Comment
 import Reddit.Types.Post
 import Control.Monad.IO.Class
 import Control.Monad.State.Class
@@ -24,12 +25,23 @@ main = do
 runSwitcharoo :: MonadIO m => RedditT m a -> m (Either (APIError RedditError) a)
 runSwitcharoo = runRedditWith switcharooOptions
 
-postToLinkedComment :: Post -> Maybe (PostID, CommentID, Int)
+
+commentIdsToLinked :: MonadIO m => [CommentID] -> RedditT m [Maybe CommentID]
+commentIdsToLinked cs = do
+    Listing _ _ cs' <- getCommentsInfo cs
+    return $ doScrape <$> content <$> cs' where
+        doScrape text = case doScrapePermalinks text of
+            Right [(_, _, c, _)] -> Just c
+            _                    -> Nothing
+        content (Comment {body=c}) = c
+
+postToLinkedComment :: Post -> Maybe CommentID
 postToLinkedComment p = do
     link <- postToLink p
-    toMaybe $ doParsePermalink link where
+    toMaybe $ snd3 <$> doParsePermalink link where
         toMaybe (Right val) = Just val
         toMaybe (Left e) = Nothing
+        snd3 (a, b, c) = b
 
 postToLink :: Post -> Maybe Text
 postToLink (Post {content = Link text}) = Just text
