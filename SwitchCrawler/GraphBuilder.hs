@@ -13,26 +13,26 @@ import qualified Data.Map.Strict as M
 --is spent on the actual polling the API
 data GraphBuilder a = GraphBuilder 
     { gbqueue :: [a] 
-    , gbmap :: (M.Map a a)
+    , gbmap :: (M.Map a (Maybe a))
     }
 
-emptyGraphBuilder :: GraphBuilder
+emptyGraphBuilder :: GraphBuilder a
 emptyGraphBuilder = GraphBuilder [] M.empty
 
-mapMap :: (M.Map a a -> M.Map a a) -> GraphBuilder a -> GraphBuilder a
+mapMap :: (M.Map a (Maybe a) -> M.Map a (Maybe a)) -> GraphBuilder a -> GraphBuilder a
 mapMap f (GraphBuilder queue map) = GraphBuilder queue (f map)
 
 mapQueue :: ([a] -> [a]) -> GraphBuilder a -> GraphBuilder a
 mapQueue f (GraphBuilder queue map) = GraphBuilder (f queue) map
 
 enqueue :: MonadState (GraphBuilder a) m => [a] -> m ()
-enqueue as = modify' $ mapMap (++ as)
+enqueue as = modify' $ mapQueue (++ as)
 
 dequeue :: MonadState (GraphBuilder a) m => Int -> m [a]
 dequeue n = do
     gb <- get
-    let (ret, queue') = splitAt n queue
-    put gb {queue=queue'}
+    let (ret, queue') = splitAt n (gbqueue gb)
+    put gb {gbqueue=queue'}
     return ret
 
 modifyQueue :: MonadState (GraphBuilder a) m => ([a] -> [a]) -> m ()
@@ -43,5 +43,5 @@ mapContains = do
     GraphBuilder queue map <- get
     return $ \a -> elem a $ M.keys map
 
-insertMap :: Ord a => MonadState (GraphBuilder a) m => a -> a -> m ()
-insertMap k v = modify' $ mapMap $ insert k v
+insertMap :: Ord a => MonadState (GraphBuilder a) m => a -> (Maybe a) -> m ()
+insertMap k v = modify' $ mapMap $ M.insert k v
