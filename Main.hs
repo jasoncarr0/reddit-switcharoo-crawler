@@ -87,8 +87,15 @@ commentIdsToLinked cs = do
             Right ls -> third4 <$> ls
             _        -> []
         tryRec c = do
+            r1 <- tryRec1 c 
+            if (not $ null r1) then return r1 else tryRec2 c
+        tryRec1 c = do
             cs2 <- getMoreChildren (parentLink c) [commentID c]
             return $ join (doScrape <$> content <$> catMaybes (actual <$> cs2))
+        tryRec2 c = do
+            let parID = inReplyTo c
+            case parID of Nothing -> return []
+                          Just p -> (doScrape . content) <$> getCommentInfo p
         actual (Actual c) = Just c
         actual _ = Nothing
         content (Comment {body=c}) = c
