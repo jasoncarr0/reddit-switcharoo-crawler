@@ -43,11 +43,13 @@ doParsePermalink s = parse parsePermalink "permalink" s
 
 parsePermalink :: Stream s m Char => ParsecT s u m (PostID, CommentID, Int)
 parsePermalink = do
-    --http with optional https
-    string "http"
-    optional (char 's')
-    string "://"
-    (try (string "reddit.com") <|> (many alphaNum >> char '.' >> string "reddit.com"))
+    --optional reddit domain, may just be a /r/... link
+    optional $ try $ do 
+        --http with optional https
+        string "http"
+        optional (char 's')
+        string "://"
+        (try (string "reddit.com") <|> (many alphaNum >> char '.' >> string "reddit.com"))
     --optional subreddit name
     optional $ try $ string "/r/" >> many (noneOf [' ', '/'])
     string "/comments/"
