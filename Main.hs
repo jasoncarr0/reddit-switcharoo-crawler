@@ -28,7 +28,18 @@ switcharooOptions = defaultRedditOptions
 
 main :: IO ()
 main = do
+    doCrawl
     return ()
+
+doCrawl :: IO (M.Map CommentID [CommentID])
+doCrawl = do
+    --assume we succeed
+    Right cg <- runSwitcharooBuilder $ do
+        posts <- switcharooPosts
+        let comments = catMaybes $ postToLinkedComment <$> posts
+        buildCommentGraph comments
+    return cg
+
 
 runSwitcharoo :: MonadIO m => RedditT m a -> m (Either (APIError RedditError) a)
 runSwitcharoo = runRedditWith switcharooOptions
@@ -65,10 +76,21 @@ buildCommentGraph ids = do
 commentIdsToLinked :: MonadIO m => [CommentID] -> RedditT m [[CommentID]]
 commentIdsToLinked cs = do
     Listing _ _ cs' <- getCommentsInfo cs
-    return $ doScrape <$> content <$> cs' where
+    let newVal = do
+         c <- cs'
+         return (c, doScrape $ content c)
+    --for each element in the list, if it's empty, check one level of children
+    let twisted = (\(c, ls) -> if (null ls) then tryRec c else return ls) <$> newVal
+    sequence twisted
+    where
         doScrape text = case doScrapePermalinks text of
             Right ls -> third4 <$> ls
             _        -> []
+        tryRec c = do
+            cs2 <- getMoreChildren (parentLink c) [commentID c]
+            return $ join (doScrape <$> content <$> catMaybes (actual <$> cs2))
+        actual (Actual c) = Just c
+        actual _ = Nothing
         content (Comment {body=c}) = c
         third4 (a, b, c, d) = c
 
