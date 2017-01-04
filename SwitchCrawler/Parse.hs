@@ -10,10 +10,12 @@ module SwitchCrawler.Parse
 import Control.Monad.Identity
 import Data.Char (digitToInt)
 import Data.Text (Text, pack)
+import Data.Maybe (catMaybes)
 import Reddit.Types.Comment
 import Reddit.Types.Post
 import Text.Parsec
 import Text.Parsec.Char
+import System.IO.Unsafe (unsafePerformIO)
 
 doScrapePermalinks :: Stream s Identity Char => s -> Either ParseError [(String, PostID, CommentID, Int)]
 doScrapePermalinks s = parse scrapePermalinks "post content" s
@@ -25,17 +27,20 @@ scrapePermalinks = do
     links <- many $ try $ do 
         many $ noneOf "["
         char '['
-        text <- many $ noneOf "[]()"
+        text <- many $ noneOf "]"
         char ']'
         spaces
         char '('
         spaces
-        (post, comment, id) <- try parsePermalink
-        spaces
-        char ')'
-        return (text, post, comment, id)
-    many anyChar
-    return links
+        maybePost  <- optionMaybe $ try parsePermalink
+        case maybePost of
+            Nothing -> (manyTill anyChar $ try $ char ')') >> return Nothing
+            Just (post, comment, id) -> do
+                spaces
+                char ')'
+                return $ Just (text, post, comment, id)
+    many $ anyChar
+    return $ catMaybes $ links
     
 
 doParsePermalink :: Stream s Identity Char => s -> Either ParseError (PostID, CommentID, Int)
@@ -51,13 +56,13 @@ parsePermalink = do
         string "://"
         (try (string "reddit.com") <|> (many alphaNum >> char '.' >> string "reddit.com"))
     --optional subreddit name
-    optional $ try $ string "/r/" >> many (noneOf [' ', '/'])
-    string "/comments/"
+    optional (try $ string "/r/" >> many (noneOf [' ', '/']))
+    try $ string "/comments/"
     post <- many alphaNum
     --post name
     char '/'
     --
-    many (noneOf [' ', '/'])
+    many $ noneOf " /)"
     char '/'
     --comment name
     comment <- many alphaNum
